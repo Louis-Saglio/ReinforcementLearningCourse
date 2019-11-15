@@ -14,6 +14,7 @@ def play_one_session(
     action_chooser: Callable[[TimeLimit, Any], Any],
     render: bool = False,
     custom_actions: Callable[[int, TimeLimit, Any, Any, Any, bool, Any], None] = None,
+    stop_when_done: bool = True,
 ) -> Tuple[float, List[Dict[str, Any]]]:
     observation = env.reset()
 
@@ -21,12 +22,10 @@ def play_one_session(
     history = []
 
     for i in range(max_size):
-        current_iteration_history = {"observation": observation}
 
         action = action_chooser(env, observation)
+        current_iteration_history = {"observation": observation, "action": action}
         observation, reward, done, info = env.step(action)
-
-        current_iteration_history["action"] = action
 
         score += reward
         history.append(current_iteration_history)
@@ -37,7 +36,7 @@ def play_one_session(
         if render:
             env.render()
 
-        if done:
+        if stop_when_done and done:
             break
 
     return score, history
@@ -83,9 +82,9 @@ def build_training_data(
         if score >= minimum_score:
             for data in history:
                 if data["action"] == 1:
-                    action = [1, 0]
+                    action = [1]
                 elif data["action"] == 0:
-                    action = [0, 1]
+                    action = [0]
                 else:
                     raise RuntimeError(f"Unexpected action value {data['action']}")
                 training_data.append([data["observation"], action])
