@@ -24,6 +24,9 @@ def play_one_session(
 
     for i in range(max_size):
 
+        if render:
+            env.render()
+
         action = action_chooser(env, observation)
         current_iteration_history = {"observation": observation, "action": action}
         observation, reward, done, info = env.step(action)
@@ -34,9 +37,6 @@ def play_one_session(
         if custom_actions is not None:
             custom_actions(i, env, action, observation, reward, done, info)
 
-        if render:
-            env.render()
-
         if stop_when_done and done:
             break
 
@@ -44,8 +44,22 @@ def play_one_session(
 
 
 def play_by_hand(env: TimeLimit):
-    for _ in range(10):
-        play_one_session(env, 10, lambda e, _: {"1": 1}.get(input(">>>"), 0), True)
+    def choose(e: TimeLimit, obs):
+        while True:
+            input_ = input(">>>")
+            if input_.lower() in {"q", "quit", "exit", "stop", "end"}:
+                exit(0)
+            processed_input = {"0": 0, "1": 1}.get(input_, None)
+            if processed_input is not None:
+                return processed_input
+            print(f"{input_} is not a valid input, try again")
+
+    score, history = play_one_session(env, 20, choose, True)
+    if score == 1:
+        print("You have won !")
+    else:
+        print("You have lost !")
+    print(f"Score : {score}")
 
 
 def play_at_random(env: TimeLimit):
@@ -160,6 +174,71 @@ def train_model(training_data, dump_into: str = None) -> Sequential:
     return model
 
 
+def build_and_train_smart_model(
+    env: TimeLimit,
+    min_training_data_length_wanted: int,
+    training_duration: int,
+    minimum_score: Union[int, float],
+    show_progress: bool = False,
+    load_basic_training_data_from: str = None,
+    load_advanced_training_data_from: str = None,
+    dump_basic_training_data_in: str = None,
+    dump_advanced_training_data_in: str = None,
+    dump_model_in: str = None,
+) -> Sequential:
+    if show_progress:
+        print("Watch how to play ...")
+    if load_basic_training_data_from is None:
+        basic_training_data = build_training_data_by_random(
+            env,
+            min_training_data_length_wanted,
+            training_duration,
+            minimum_score,
+            show_progress,
+        )
+    else:
+        with open(load_basic_training_data_from, "rb") as f:
+            basic_training_data = pickle.load(f)
+    if show_progress:
+        print("Learn to play")
+    basic_model = train_model(basic_training_data)
+    if show_progress:
+        print("Watch himself play")
+    if load_advanced_training_data_from is None:
+        advanced_training_data = build_training_data_with_model(
+            env,
+            basic_model,
+            min_training_data_length_wanted * 100,
+            training_duration,
+            1,
+            show_progress,
+        )
+    else:
+        with open(load_advanced_training_data_from, "rb") as f:
+            advanced_training_data = pickle.load(f)
+    if show_progress:
+        print("Master the game")
+    advanced_model = train_model(advanced_training_data)
+
+    if (
+        dump_basic_training_data_in is not None
+        and dump_basic_training_data_in != load_basic_training_data_from
+    ):
+        with open(dump_basic_training_data_in, "wb") as f:
+            pickle.dump(basic_training_data, f)
+    if (
+        dump_advanced_training_data_in is not None
+        and dump_advanced_training_data_in != load_advanced_training_data_from
+    ):
+        with open(dump_advanced_training_data_in, "wb") as f:
+            pickle.dump(advanced_training_data, f)
+    if dump_model_in is not None:
+        with open(dump_model_in, "wb") as f:
+            pickle.dump(advanced_model, f)
+
+    return advanced_model
+
+
 def play_smart(
     env: TimeLimit, model: Sequential, session_numbers: int, session_size: int
 ):
@@ -174,16 +253,15 @@ def play_smart(
         print(f"Average score : {round(score * 100, 2)} %")
 
 
-def main(
-    load_training_data_from: str = None,
-    dump_training_data_in: str = None,
+def main_with_ai(
+    load_basic_training_data_from: str = None,
+    load_advanced_training_data_from: str = None,
+    dump_basic_training_data_in: str = None,
+    dump_advanced_training_data_in: str = None,
     load_model_from: str = None,
     dump_model_in: str = None,
 ):
     env = gym.make("CartPole-v1")
-
-    # play_at_random(env)
-    # play_by_hand(env)
 
     if load_model_from is not None:
         # If a model file is given, load it now
@@ -192,59 +270,38 @@ def main(
             model = pickle.load(f)
         # Do not add an else clause for building & training a new model right now
         # because we must build training data before
-
-    if load_training_data_from is not None:
-        # If a training data file is given, use it
-        with open(load_training_data_from, "rb") as f:
-            training_data = pickle.load(f)
-    elif load_model_from is not None:
-        # Else if a model file is given, build training data with it
-        training_data = build_training_data_with_model(
-            env=env,
-            model=model,
-            min_training_data_length_wanted=100_000,
-            training_duration=500,
-            minimum_score=1,
-            show_progress=True,
-        )
     else:
-        # Else build training data from random
-        training_data = build_training_data_by_random(
+        model = build_and_train_smart_model(
             env,
             min_training_data_length_wanted=1000,
             training_duration=500,
             minimum_score=0.27,
             show_progress=True,
+            load_basic_training_data_from=load_basic_training_data_from,
+            load_advanced_training_data_from=load_advanced_training_data_from,
+            dump_basic_training_data_in=dump_basic_training_data_in,
+            dump_advanced_training_data_in=dump_advanced_training_data_in,
+            dump_model_in=dump_model_in,
         )
-
-    if load_model_from is None:
-        # If not model file has been given, no model has been built yet
-        # so build one now
-        model = train_model(training_data)
 
     # Actually play the game
     play_smart(env, model, session_numbers=10, session_size=500)
 
-    if (
-        dump_training_data_in is not None
-        and dump_training_data_in != load_training_data_from
-    ):
-        # If saving training data to file has been asked
-        # and if the training data file is not the same that the file where to save them
-        # (to prevent saving data to a file where they already are)
-        with open(dump_training_data_in, "wb") as f:
-            pickle.dump(training_data, f)
 
-    if dump_model_in is not None and dump_model_in != load_model_from:
-        # Same but with the model
-        with open(dump_model_in, "wb") as f:
-            pickle.dump(model, f)
+def main_by_hand():
+    env = gym.make("CartPole-v1")
+    print("0 to push to the left and 1 to push to the right")
+    print("press enter to validate your choice")
+    play_by_hand(env)
 
 
 if __name__ == "__main__":
-    main(
-        load_training_data_from="cart_pole_training_data.pickle",
-        dump_training_data_in="cart_pole_training_data.pickle",
+    main_with_ai(
+        # load_basic_training_data_from="cart_pole_basic_training_data.pickle",
+        # load_advanced_training_data_from="cart_pole_training_data.pickle",
         load_model_from="cart_pole_model.pickle",
+        # dump_basic_training_data_in="cart_pole_basic_training_data.pickle",
+        # dump_advanced_training_data_in="cart_pole_advanced_training_data.pickle",
         dump_model_in="cart_pole_model.pickle",
     )
+    # main_by_hand()
