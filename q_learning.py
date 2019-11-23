@@ -5,7 +5,7 @@ import gym
 import numpy as np
 
 EPISODE_SIZE = 300
-EPISODE_NUMBER = 10_000
+EPISODE_NUMBER = 7_000
 
 EPSILON = 0.3
 LEARNING_RATE = 0.8
@@ -31,6 +31,10 @@ def train(env):
                 action = np.argmax(q_table[previous_state, :])
 
             current_state, current_state_reward, done, info = env.step(action)
+
+            if done and current_state_reward == 0:
+                current_state_reward = -1
+                done = False
 
             q_table[previous_state, action] += LEARNING_RATE * (
                 current_state_reward
@@ -114,7 +118,8 @@ if __name__ == "__main__":
 
     def main():
         # env, winning_reward = gym.make("FrozenLake-v0", is_slippery=False), 1
-        env, winning_reward = gym.make("Taxi-v3"), 20
+        env, winning_reward = gym.make("FrozenLake8x8-v0", is_slippery=False), 1
+        # env, winning_reward = gym.make("Taxi-v3"), 20
 
         seed = 0 or int(time())
         env.action_space.np_random.seed(seed)
@@ -123,7 +128,7 @@ if __name__ == "__main__":
 
         q_table = train(env)
 
-        evaluate(env, 1, q_table=q_table, winning_reward=winning_reward, render=True)
+        evaluate(env, 100, q_table=q_table, winning_reward=winning_reward, render=True)
         evaluate(env, 1000, is_random=True, winning_reward=winning_reward)
 
         return env, q_table
