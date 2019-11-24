@@ -32,9 +32,15 @@ def train(env):
 
             current_state, current_state_reward, done, info = env.step(action)
 
-            if done and current_state_reward == 0:
-                current_state_reward = -1
-                done = False
+            # Uncomment the following block if you want to solve FrozenLake 8x8
+            # You need to do this because in this environment,
+            # the probability of getting a reward when playing at random is almost 0
+            # So your Q-table is never updated, and the agent does not learn.
+            # Here, if the agent is on a hole and, instead of ending the simulation,
+            # the agent is given a negative reward, so it will learn not to go on holes
+            # if done and current_state_reward == 0:
+            #     current_state_reward = -1
+            #     done = False
 
             q_table[previous_state, action] += LEARNING_RATE * (
                 current_state_reward
@@ -64,7 +70,8 @@ def evaluate(
     It may also use random instead of a q-table
     in order to compare the performance of a q-table against a random solution
     :param env: gym environment to solve
-    :param total_episodes: number of time to repeat the evaluation. The bigger the more statiscally significant the output will be
+    :param total_episodes: number of time to repeat the evaluation.
+           The bigger the more statistically significant the output will be
     :param q_table: Q-table to used solve the problem
            if given, is_random must be False
     :param winning_reward: the reward given to the agent when it solves the problem.
@@ -107,7 +114,7 @@ def evaluate(
     print(
         f"Results after {total_episodes} episodes using {'random' if is_random else 'q_table'}:"
     )
-    print(f"Average timesteps per episode: {total_epochs / total_episodes}")
+    print(f"Average steps per episode: {total_epochs / total_episodes}")
     print(f"Average reward per episode: {total_reward / total_episodes}")
     print(
         f"Percentage of won episodes : {round(total_won_episodes * 100 / total_episodes, 2)}%"
@@ -117,8 +124,8 @@ def evaluate(
 if __name__ == "__main__":
 
     def main():
-        # env, winning_reward = gym.make("FrozenLake-v0", is_slippery=False), 1
-        env, winning_reward = gym.make("FrozenLake8x8-v0", is_slippery=False), 1
+        env, winning_reward = gym.make("FrozenLake-v0", is_slippery=False), 1
+        # env, winning_reward = gym.make("FrozenLake8x8-v0", is_slippery=False), 1
         # env, winning_reward = gym.make("Taxi-v3"), 20
 
         seed = 0 or int(time())
@@ -129,7 +136,7 @@ if __name__ == "__main__":
         q_table = train(env)
 
         evaluate(env, 100, q_table=q_table, winning_reward=winning_reward, render=True)
-        evaluate(env, 1000, is_random=True, winning_reward=winning_reward)
+        evaluate(env, 100, is_random=True, winning_reward=winning_reward)
 
         return env, q_table
 
