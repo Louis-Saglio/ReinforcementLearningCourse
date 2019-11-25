@@ -5,7 +5,7 @@ import gym
 import numpy as np
 
 EPISODE_SIZE = 300
-EPISODE_NUMBER = 7_000
+EPISODE_NUMBER = 1_000
 
 EPSILON = 0.3
 LEARNING_RATE = 0.8
@@ -64,6 +64,7 @@ def evaluate(
     winning_reward=None,
     is_random=False,
     render=False,
+    display_result=False,
 ):
     """
     Evaluate the performance of a q-table to solve a gym environment problem
@@ -80,6 +81,9 @@ def evaluate(
            If True, q-table must not be given
     :param render: if True will call env.render()
     """
+    # Todo : rename and re-think is_random parameter into policy parameter
+    # Todo : render only last evaluation
+    # Todo : yield q-table, evaluate it and continue evaluation if it is not good enough
 
     if (q_table is not None) and is_random:
         raise RuntimeError("is_random and q_table given")
@@ -110,15 +114,17 @@ def evaluate(
         if reward == winning_reward:
             total_won_episodes += 1
 
-    print("-" * 30)
-    print(
-        f"Results after {total_episodes} episodes using {'random' if is_random else 'q_table'}:"
-    )
-    print(f"Average steps per episode: {total_epochs / total_episodes}")
-    print(f"Average reward per episode: {total_reward / total_episodes}")
-    print(
-        f"Percentage of won episodes : {round(total_won_episodes * 100 / total_episodes, 2)}%"
-    )
+    score = round(total_won_episodes * 100 / total_episodes, 2)
+
+    if display_result:
+        print("-" * 30)
+        print(
+            f"Results after {total_episodes} episodes using {'random' if is_random else 'q_table'}:"
+        )
+        print(f"Average steps per episode: {total_epochs / total_episodes}")
+        print(f"Average reward per episode: {total_reward / total_episodes}")
+        print(f"Percentage of won episodes : {score}%")
+    return score
 
 
 if __name__ == "__main__":
@@ -135,9 +141,24 @@ if __name__ == "__main__":
 
         q_table = train(env)
 
-        evaluate(env, 100, q_table=q_table, winning_reward=winning_reward, render=True)
-        evaluate(env, 100, is_random=True, winning_reward=winning_reward)
+        evaluate(
+            env,
+            100,
+            q_table=q_table,
+            winning_reward=winning_reward,
+            render=True,
+            display_result=True,
+        )
+        evaluate(
+            env, 100, is_random=True, winning_reward=winning_reward, display_result=True
+        )
 
         return env, q_table
 
     environment, Q = main()
+
+
+# Average score with QTable in FL is either 0 or 100 because there is no random
+# With TD its variable because the starting state is random
+# Pourquoi ça plafonne à -20
+# Pourquoi sur TD EPSILON doit être 0 avec sarsa ?
