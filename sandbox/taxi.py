@@ -62,22 +62,31 @@ def main(load_from=None, save_to=None):
         state = env.reset()
         t = 0
         while t < max_steps:
-            action = choose_action(state, epsilon, env, Q)
+            if np.random.uniform(0, 1) < epsilon:
+                action = env.action_space.sample()
+            else:
+                action = np.argmax(Q[state, :])
+
             state2, reward, done, info = env.step(action)
-            learn(state, state2, reward, action, Q, gamma, lr_rate)
+
+            Q[state, action] = Q[state, action] + lr_rate * (
+                reward + gamma * np.max(Q[state2, :]) - Q[state, action]
+            )
+
             state = state2
             t += 1
             if done:
                 break
+        print(f"Episode {episode} : {t} steps")
 
     # print(Q)
     if save_to:
         with open(save_to, "wb") as f:
             pickle.dump(Q, f)
 
-    evaluate(False, env, total_episodes, Q)
-    evaluate(False, env, total_episodes, Q)
-    evaluate(True, env, total_episodes, Q)
+    # evaluate(False, env, total_episodes, Q)
+    # evaluate(False, env, total_episodes, Q)
+    # evaluate(True, env, total_episodes, Q)
 
 
 if __name__ == "__main__":
