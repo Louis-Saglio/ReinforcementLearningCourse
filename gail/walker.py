@@ -1,3 +1,4 @@
+from statistics import mean
 from typing import Any, List, Union, Callable
 
 import gym
@@ -43,7 +44,11 @@ def build_training_data(
             )
     if show_progress:
         print()
-    return training_data, scores
+    return (
+        (np.array([observation for observation, _ in training_data])),
+        (np.array([action for _, action in training_data])),
+        scores,
+    )
 
 
 def replay_memory(env: TimeLimit, memory: List[List[Any]]):
@@ -71,34 +76,52 @@ def play_smart(
     def choose_smart_action(_: TimeLimit, observation):
         return model.predict(np.array([observation]))
 
+    scores = []
     for _ in range(session_numbers):
         score, _ = play_one_session(
             env, session_size, choose_smart_action, render=False, stop_when_done=True
         )
-        print(f"Average score : {round(score * 100, 2)} %")
+        scores.append(score)
+    print(f"Average score : {round(mean(scores), 2)}")
+
+
+def play_at_random(env: TimeLimit, session_numbers: int, session_size: int):
+    scores = []
+    for _ in range(session_numbers):
+        score, _ = play_one_session(
+            env,
+            session_size,
+            lambda e, _: e.action_space.sample(),
+            render=False,
+            stop_when_done=True,
+        )
+        scores.append(score)
+    print(f"Average score : {round(mean(scores), 2)}")
+
+
+def train(model, training_data):
+    x = np.array([observation for observation, _ in training_data])
+    y = np.array([action for _, action in training_data])
+    model.fit(x, y, epochs=1, verbose=1)
+    return model
 
 
 def main():
     env = gym.make("BipedalWalker-v2")
-    training_data, scores = build_training_data(
+    states, actions, scores = build_training_data(
         env,
-        min_training_data_length_wanted=1,
-        # min_training_data_length_wanted=10000,
+        min_training_data_length_wanted=10000,
         training_duration=1600,
-        minimum_score=-1,
-        # minimum_score=-0.05,
+        minimum_score=-0.045,
         action_chooser=lambda e, _: e.action_space.sample(),
         show_progress=True,
     )
-    x = np.array([observation for observation, _ in training_data])
-    y = np.array([action for _, action in training_data])
-    model = build_model(input_size=len(x[0]), output_size=len(y[0]))
-    model.fit(x, y, epochs=1, verbose=1)
+
+    model = build_model(input_size=len(states[0]), output_size=len(actions[0]))
+    model.fit(states, actions, epochs=5, verbose=0)
+
     play_smart(env, model, 10, 100)
-    # try:
-    #     play_smart(env, model, 10, 100)
-    # except Exception as e:
-    #     print(e)
+    play_at_random(env, 10, 100)
     return locals()
 
 

@@ -94,12 +94,12 @@ def build_training_data(
 
         if score >= minimum_score:
             for data in history:
-            #     if data["action"] == 1:
-            #         action = [0, 1]
-            #     elif data["action"] == 0:
-            #         action = [1, 0]
-            #     else:
-            #         raise RuntimeError(f"Unexpected action value {data['action']}")
+                #     if data["action"] == 1:
+                #         action = [0, 1]
+                #     elif data["action"] == 0:
+                #         action = [1, 0]
+                #     else:
+                #         raise RuntimeError(f"Unexpected action value {data['action']}")
                 training_data.append([data["observation"], data["action"]])
 
         if show_progress:
