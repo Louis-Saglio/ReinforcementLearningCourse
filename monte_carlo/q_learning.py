@@ -7,7 +7,7 @@ import numpy as np
 from utils import evaluate
 
 EPISODE_SIZE = 300
-EPISODE_NUMBER = 1_000
+EPISODE_NUMBER = 5_000
 
 EPSILON = 0.3
 LEARNING_RATE = 0.8
@@ -40,9 +40,9 @@ def train(env):
             # So your Q-table is never updated, and the agent does not learn.
             # Here, if the agent is on a hole and, instead of ending the simulation,
             # the agent is given a negative reward, so it will learn not to go on holes
-            # if done and current_state_reward == 0:
-            #     current_state_reward = -1
-            #     done = False
+            if done and current_state_reward == 0:
+                current_state_reward = -1
+                done = False
 
             q_table[previous_state, action] += LEARNING_RATE * (
                 current_state_reward
@@ -61,8 +61,8 @@ def train(env):
 if __name__ == "__main__":
 
     def main():
-        env, winning_reward = gym.make("FrozenLake-v0", is_slippery=False), 1
-        # env, winning_reward = gym.make("FrozenLake8x8-v0", is_slippery=False), 1
+        # env, winning_reward = gym.make("FrozenLake-v0", is_slippery=False), 1
+        env, winning_reward = gym.make("FrozenLake8x8-v0", is_slippery=False), 1
         # env, winning_reward = gym.make("Taxi-v3"), 20
 
         seed = 0 or int(time())
