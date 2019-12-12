@@ -1,3 +1,4 @@
+import pickle
 from statistics import mean
 from typing import Any, List, Union, Callable
 
@@ -61,11 +62,8 @@ def replay_memory(env: TimeLimit, memory: List[List[Any]]):
 
 def build_model(input_size, output_size) -> Sequential:
     model = Sequential()
-    model.add(Dense(128, input_dim=input_size, activation="relu"))
-    model.add(Dense(52, activation="relu"))
-    model.add(Dense(32, activation="sigmoid"))
-    model.add(Dense(20, activation="sigmoid"))
-    model.add(Dense(output_size, activation="linear"))
+    model.add(Dense(64, input_dim=input_size, activation="relu"))
+    model.add(Dense(output_size, activation="sigmoid"))
     model.compile(loss="mse", optimizer=Adam())
     return model
 
@@ -99,31 +97,32 @@ def play_at_random(env: TimeLimit, session_numbers: int, session_size: int):
     print(f"Average score : {round(mean(scores), 2)}")
 
 
-def train(model, training_data):
-    x = np.array([observation for observation, _ in training_data])
-    y = np.array([action for _, action in training_data])
-    model.fit(x, y, epochs=1, verbose=1)
-    return model
-
-
-def main():
+def main(load_from=None):
     env = gym.make("BipedalWalker-v2")
-    states, actions, scores = build_training_data(
-        env,
-        min_training_data_length_wanted=10000,
-        training_duration=1600,
-        minimum_score=-0.045,
-        action_chooser=lambda e, _: e.action_space.sample(),
-        show_progress=True,
-    )
+    if load_from:
+        with open(load_from, "rb") as f:
+            states, actions, scores = pickle.load(f)
+    else:
+        states, actions, scores = build_training_data(
+            env,
+            min_training_data_length_wanted=10000,
+            training_duration=1600,
+            minimum_score=-0.05,
+            action_chooser=lambda e, _: e.action_space.sample(),
+            show_progress=True,
+        )
+        with open("training", "wb") as f:
+            pickle.dump((states, actions, scores), f)
 
     model = build_model(input_size=len(states[0]), output_size=len(actions[0]))
-    model.fit(states, actions, epochs=5, verbose=0)
+    model.fit(states, actions, epochs=1, verbose=1)
 
-    play_smart(env, model, 10, 100)
-    play_at_random(env, 10, 100)
+    print("play with model")
+    play_smart(env, model, 100, 100)
+    print("play at random")
+    play_at_random(env, 100, 100)
     return locals()
 
 
 if __name__ == "__main__":
-    scope = main()
+    scope = main("training")
